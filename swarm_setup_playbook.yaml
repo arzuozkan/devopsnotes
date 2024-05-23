@@ -1,0 +1,56 @@
+---
+- name: Create Docker Swarm and Join Worker Nodes
+  hosts: manager
+  become: yes
+  tasks:
+    - name: Get Swarm Info
+      command: docker info
+      register: swarm_info
+
+    - name: Get Manager IP Address
+      command: hostname -I
+      register: manager_ip_address
+
+    - name: Set Combined Address Fact
+      set_fact:
+        combined_address: "{{manager_ip_address.stdout | trim}}:2377"
+
+    - name: Check if Manager is already part of Swarm
+      set_fact:
+        is_manager_in_swarm: "{{ swarm_info.stdout | regex_search('Swarm:\\s*active') }}"
+
+    - name: Print Swarm Status
+      debug:
+        #msg: "{{ is_manager_in_swarm }}"
+        msg: " {{ combined_address }} - Manager is {% if is_manager_in_swarm %} part of {% else %} not part of {% endif %} Swarm"
+
+
+    - name: Initialize Docker Swarm
+      command: docker swarm init --advertise-addr {{ manager_ip_address.stdout }}
+      when: not is_manager_in_swarm
+
+    - name: Gather Swarm join token
+      shell: docker swarm join-token -q worker
+      register: swarm_join_token
+
+    - name: Set Swarm join token as fact
+      set_fact:
+        swarm_token: "{{ swarm_join_token.stdout }}"
+      #when: not is_manager_in_swarm 
+
+    - name: Join Worker nodes to Swarm
+      command: docker swarm join --token {{ swarm_token }} {{ combined_address }}
+      ignore_errors: true
+      register: already_in_swarm
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['worker'] }}"
+      no_log: true
+      failed_when: "'This node is already part of a swarm' in item.stderr | default('')"
+
+    - name: Already swarm
+      debug:
+        msg: "***************{{ item.item }} host zaten swarm icerisinde*******************"
+      when: "'This node is already part of a swarm' in item.stderr"
+      loop: "{{ already_in_swarm.results }}"
+      loop_control:
+        label: "{{ item.item }}"
