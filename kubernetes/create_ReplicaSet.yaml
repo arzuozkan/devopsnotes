@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: my-app # change this
+spec:
+  replicas: 4 #change this
+  selector:
+    matchLabels:
+      app: my-app   #change this
+  template:
+    metadata:
+      labels:
+        app: my-app  #change this
+    spec:
+      containers:
+      - name: my-container  #change this
+        image: my-image:latest  #change this
+        ports:
+        - containerPort: 80
