@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment # change this
+spec:
+  replicas: 3 # change this
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1   
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: my-app # change this
+  template:
+    metadata:
+      labels:
+        app: my-app # change this
+    spec:
+      containers:
+      - name: my-container # change this
+        image: my-image:latest # change this
+        ports:
+        - containerPort: 80
+
+# Recreate stratejisi için
+#strategy:
+#    type: Recreate
