@@ -1,81 +1,48 @@
 ---
-- name: Install Docker on Ubuntu
+- name: Docker Kurulumu
   hosts: all
   become: yes
-  serial: 1 
-
   tasks:
-    - name: Update package cache
+    - name: Sistem Güncelleme ve Yükseltme
       apt:
+        upgrade: dist
         update_cache: yes
-      notify: update_message
-
-    - name: Upgrade system packages
-      apt:
-        upgrade: yes
-        update_cache: yes
-      notify: upgrade_message
-
-    - name: Install prerequisites for Docker
+    - name: ca-certificates ve curl paketlerini yükle
       apt:
         name:
-          - apt-transport-https
           - ca-certificates
           - curl
-          - gnupg-agent
-          - software-properties-common
         state: present
-      notify: prerequisites_message
 
-    - name: Add Docker's official GPG key
-      apt_key:
+    - name: /etc/apt/keyrings dizinini oluştur
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Docker GPG anahtarını indir
+      get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
 
-    - name: Add Docker repository to Apt sources
-      apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-        state: present
-      notify: docker_repo_message
+    - name: Docker APT deposunu ekle
+      shell: echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    - name: Update Apt package cache
+    - name: Paket listesini güncelle
       apt:
         update_cache: yes
-      notify: update_message
 
-    - name: Install Docker packages
+    - name: Docker ve ilgili paketleri yükle
       apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
         state: present
-      notify: docker_install_message
 
-    - name: Add host entries to /etc/hosts
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ ansible_default_ipv4.address }} {{ ansible_hostname }}"
-      become: yes
-      when: ansible_default_ipv4
+    - name: Docker buildx eklentisini yükle
+      shell: docker buildx install
 
-  handlers:
-    - name: update_message
-      debug:
-        msg: "Package cache updated."
-
-    - name: upgrade_message
-      debug:
-        msg: "System packages upgraded."
-
-    - name: prerequisites_message
-      debug:
-        msg: "Docker prerequisites installed."
-
-    - name: docker_repo_message
-      debug:
-        msg: "Docker repository added to Apt sources."
-
-    - name: docker_install_message
-      debug:
-        msg: "Docker installed successfully."
+    - name: Docker-compose eklentisini yükle
+      shell: curl -sSL https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose
